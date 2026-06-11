@@ -1,0 +1,1 @@
+"""SecureAI SOC Copilot backend."""
