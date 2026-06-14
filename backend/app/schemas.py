@@ -22,6 +22,12 @@ class UploadResponse(BaseModel):
     message: str
 
 
+class DeleteDocumentResponse(BaseModel):
+    document_id: str
+    filename: str
+    message: str
+
+
 class QuestionRequest(BaseModel):
     question: str = Field(min_length=3, max_length=4000)
 

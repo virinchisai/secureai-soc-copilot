@@ -118,7 +118,30 @@ def upload_panel() -> None:
     if documents:
         st.caption("Indexed documents")
         for document in documents:
-            st.write(f"- {document['filename']} ({document['chunk_count']} chunks)")
+            details, action = st.columns([4, 1])
+            details.write(
+                f"{document['filename']} ({document['chunk_count']} chunks)"
+            )
+            if action.button(
+                "Remove",
+                key=f"remove-{document['id']}",
+                use_container_width=True,
+            ):
+                try:
+                    response = api_request(
+                        "DELETE",
+                        f"/api/documents/{document['id']}",
+                    )
+                except requests.RequestException as exc:
+                    st.error(f"Removal failed: {exc}")
+                    return
+
+                if response.ok:
+                    st.session_state.documents = None
+                    st.success(f"Removed {document['filename']}.")
+                    st.rerun()
+                else:
+                    st.error(error_detail(response))
     else:
         st.info("Upload a document to begin.")
 

@@ -12,7 +12,7 @@ from app.dependencies import (
     get_rag_service,
     get_upload_storage,
 )
-from app.schemas import DocumentResponse, UploadResponse
+from app.schemas import DeleteDocumentResponse, DocumentResponse, UploadResponse
 from app.services.extraction import ALLOWED_EXTENSIONS, ExtractionError, extract_text
 from app.services.rag import RAGService
 from app.services.storage import UploadStorage
@@ -27,6 +27,47 @@ def list_documents(
     database: Database = Depends(get_database),
 ) -> list[dict]:
     return database.list_documents(current_user)
+
+
+@router.delete("/{document_id}", response_model=DeleteDocumentResponse)
+async def delete_document(
+    document_id: str,
+    current_user: str = Depends(get_current_user),
+    database: Database = Depends(get_database),
+    rag_service: RAGService = Depends(get_rag_service),
+    upload_storage: UploadStorage = Depends(get_upload_storage),
+) -> DeleteDocumentResponse:
+    document = database.get_document(document_id, current_user)
+    if document is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    vector_ids = [
+        f"{document_id}:{chunk_number}"
+        for chunk_number in range(1, document["chunk_count"] + 1)
+    ]
+    try:
+        await run_in_threadpool(
+            rag_service.delete_vectors,
+            current_user,
+            vector_ids,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Document vectors could not be removed.",
+        ) from exc
+
+    await run_in_threadpool(
+        upload_storage.delete_document,
+        current_user,
+        document_id,
+    )
+    database.delete_document(document_id, current_user)
+    return DeleteDocumentResponse(
+        document_id=document_id,
+        filename=document["filename"],
+        message="Document removed successfully",
+    )
 
 
 @router.post(

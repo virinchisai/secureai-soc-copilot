@@ -89,6 +89,85 @@ def test_upload_persists_file_and_faiss_index(
     )
 
 
+def test_delete_removes_file_vectors_and_metadata(tmp_path) -> None:
+    settings = Settings(
+        jwt_secret_key="test-secret-that-is-long-enough",
+        data_dir=tmp_path,
+        chunk_size=20,
+        chunk_overlap=5,
+    )
+    database = Database(settings.database_path)
+    database.initialize()
+
+    app = FastAPI()
+    app.include_router(documents.router, prefix=settings.api_prefix)
+    app.state.database = database
+    app.state.rag_service = RAGService(
+        settings,
+        embeddings=DeterministicEmbeddings(),
+        chat_model=object(),
+    )
+    app.state.upload_storage = UploadStorage(settings.uploads_dir)
+    app.dependency_overrides[get_current_user] = lambda: "analyst"
+    app.dependency_overrides[get_settings] = lambda: settings
+
+    with TestClient(app) as client:
+        upload = client.post(
+            "/api/documents/upload",
+            files={
+                "file": (
+                    "delete-me.log",
+                    b"failed login followed by privilege escalation",
+                    "text/plain",
+                )
+            },
+        )
+        assert upload.status_code == 201, upload.text
+        document = upload.json()["document"]
+        stored_file = (
+            settings.uploads_dir
+            / "analyst"
+            / document["id"]
+            / "delete-me.log"
+        )
+        assert stored_file.is_file()
+
+        response = client.delete(f"/api/documents/{document['id']}")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["filename"] == "delete-me.log"
+    assert not stored_file.exists()
+    assert database.list_documents("analyst") == []
+    assert app.state.rag_service.vector_store.index_size("analyst") == 0
+
+
+def test_delete_does_not_expose_another_users_document(tmp_path) -> None:
+    database = Database(tmp_path / "test.db")
+    database.initialize()
+    database.add_document(
+        document_id="other-document",
+        user_id="other-user",
+        filename="private.log",
+        chunk_count=1,
+        size_bytes=10,
+        sha256="checksum",
+        stored_path="other-user/other-document/private.log",
+    )
+
+    app = FastAPI()
+    app.include_router(documents.router, prefix="/api")
+    app.state.database = database
+    app.state.rag_service = object()
+    app.state.upload_storage = UploadStorage(tmp_path / "uploads")
+    app.dependency_overrides[get_current_user] = lambda: "analyst"
+
+    with TestClient(app) as client:
+        response = client.delete("/api/documents/other-document")
+
+    assert response.status_code == 404
+    assert database.get_document("other-document", "other-user") is not None
+
+
 def _pdf_with_text(text: str) -> bytes:
     writer = PdfWriter()
     page = writer.add_blank_page(width=612, height=792)

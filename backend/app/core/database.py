@@ -147,6 +147,25 @@ class Database:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def get_document(self, document_id: str, user_id: str) -> dict | None:
+        with self.connect() as connection:
+            row = connection.execute(
+                """
+                SELECT id, filename, chunk_count, size_bytes, sha256, created_at
+                FROM documents
+                WHERE id = ? AND user_id = ?
+                """,
+                (document_id, user_id),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def delete_document(self, document_id: str, user_id: str) -> None:
+        with self.connect() as connection:
+            connection.execute(
+                "DELETE FROM documents WHERE id = ? AND user_id = ?",
+                (document_id, user_id),
+            )
+
     def add_audit_log(
         self,
         user_id: str,
