@@ -265,7 +265,31 @@ FAISS persistence and retrieval, grounded prompting, structured log answers,
 and citation validation without making paid model API calls.
 
 GitHub Actions runs the same lint and test commands for pushes and pull
-requests.
+requests. A separate CodeQL workflow scans Python code on pull requests,
+updates to `main`, and a weekly schedule. Dependabot checks backend, frontend,
+and GitHub Actions dependencies weekly.
+
+## Check security on GitHub
+
+1. Open the repository's **Security** tab.
+2. Review **Code scanning** for CodeQL findings.
+3. Review **Dependabot** for vulnerable dependency alerts.
+4. Review **Secret scanning** and enable push protection in repository
+   **Settings > Security** when available.
+5. Open **Actions** and confirm the **CI** and **CodeQL** workflows are green.
+
+For a manual local check:
+
+```bash
+ruff check backend frontend
+PYTHONPATH=backend pytest -q backend/tests
+pip check
+git grep -n "sk-" -- .
+```
+
+Never commit `.env`, API keys, uploaded evidence, the SQLite database, or FAISS
+indexes. See [`SECURITY.md`](SECURITY.md) for vulnerability reporting and the
+MVP's security boundaries.
 
 ## MVP security notes
 
@@ -325,5 +349,4 @@ Production improvements include persistent users and RBAC, hybrid search and
 reranking, OCR, asynchronous ingestion, malware scanning, retrieval
 evaluation, stronger injection defenses, observability, managed storage, rate
 limits, TLS, and deployment hardening.
-
 
