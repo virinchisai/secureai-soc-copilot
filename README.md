@@ -9,16 +9,18 @@ SQLite audit logging.
 
 - Signs a demo analyst in with a JWT access token.
 - Accepts `.txt`, `.log`, and text-based `.pdf` files up to a configurable size.
-- Extracts and chunks text, creates OpenAI embeddings, and persists a per-user
-  FAISS index.
+- Extracts and chunks text, creates local Ollama or OpenAI embeddings, and
+  persists a per-user FAISS index.
 - Persists each original upload under a per-user, per-document directory and
   records its size and SHA-256 checksum.
-- Retrieves relevant chunks and asks either OpenAI or Claude to answer only
+- Retrieves relevant chunks and asks Ollama, OpenAI, or Claude to answer only
   from those excerpts.
 - Returns citation labels and the exact retrieved source snippets.
 - Blocks common prompt-injection phrases before they reach the model.
-- Records every question outcome in a local SQLite audit table.
+- Records the timestamp, username, retrieved filenames, prompt, status, and
+  response summary in a local SQLite audit table.
 - Runs locally or as two Docker Compose services.
+- Includes GitHub Actions checks for linting, tests, and Compose validation.
 
 ## Architecture
 
@@ -33,8 +35,8 @@ Streamlit UI :8501
 FastAPI :8000
   |-- Auth and upload validation
   |-- Text/PDF extraction and LangChain chunking
-  |-- OpenAI embeddings -> per-user FAISS index
-  |-- Retrieval -> grounded OpenAI or Claude answer
+  |-- Ollama/OpenAI embeddings -> per-user FAISS index
+  |-- Retrieval -> grounded Ollama, OpenAI, or Claude answer
   `-- SQLite document metadata and audit logs
 ```
 
@@ -72,9 +74,36 @@ data/
 |   |-- app.py
 |   |-- Dockerfile
 |   `-- requirements.txt
+|-- docs
+|   `-- interview-talking-points.md
+|-- sample-security-incident.log
+|-- .github/workflows/ci.yml
 |-- .env.example
 `-- docker-compose.yml
 ```
+
+## Prerequisites
+
+- Docker Desktop with Docker Compose, or Python 3.10+
+- Ollama for the default free local mode
+- At least 4 GB of available memory for the small local models
+
+Install Ollama from <https://ollama.com/download>. On macOS with Homebrew:
+
+```bash
+brew install ollama
+```
+
+Download the configured models once:
+
+```bash
+ollama pull deepseek-r1:1.5b
+ollama pull nomic-embed-text
+ollama list
+```
+
+Keep the Ollama desktop app running. If you installed only the CLI, run
+`ollama serve` in a separate terminal.
 
 ## Quick start with Docker
 
@@ -88,18 +117,23 @@ data/
 
    - `JWT_SECRET_KEY` to a long random value.
    - `DEMO_USERNAME` and `DEMO_PASSWORD`.
-   - `OPENAI_API_KEY` to a valid API key.
-   - `LLM_PROVIDER` to `openai` or `anthropic`.
-   - `ANTHROPIC_API_KEY` when using Claude.
+   - Keep `EMBEDDING_PROVIDER=ollama`.
+   - Keep `LLM_PROVIDER=ollama`.
+
+   OpenAI and Anthropic settings are optional and only needed when selecting
+   those paid providers.
 
 3. Build and start:
 
    ```bash
-   docker compose up --build
+   docker compose up --build -d
+   docker compose ps
    ```
 
-   Compose can parse the project without a `.env` file, but the backend will
-   stop with a clear error until `OPENAI_API_KEY` is configured.
+   The backend container connects to Ollama running on the host through
+   `host.docker.internal`.
+   The first local answer may take longer while Ollama loads the model into
+   memory; later questions are typically faster.
 
 4. Open:
 
@@ -107,6 +141,12 @@ data/
    - FastAPI docs: <http://localhost:8000/docs>
 
 5. Sign in using the `DEMO_USERNAME` and `DEMO_PASSWORD` from `.env`.
+
+Stop the application without deleting its data:
+
+```bash
+docker compose down
+```
 
 ## Run locally without Docker
 
@@ -132,7 +172,52 @@ In a second terminal, using the same virtual environment:
 streamlit run frontend/app.py
 ```
 
+## Provider configuration
+
+The default configuration is fully local and does not require API credit.
+
+| Embeddings | Answer model | Required settings |
+| --- | --- | --- |
+| Ollama | Ollama | Default; pull both configured Ollama models |
+| OpenAI | OpenAI | Set both providers to `openai` and add `OPENAI_API_KEY` |
+| OpenAI | Anthropic | Set embeddings to `openai`, chat to `anthropic`, and add both API keys |
+
+To use OpenAI:
+
+```dotenv
+EMBEDDING_PROVIDER=openai
+LLM_PROVIDER=openai
+OPENAI_API_KEY=your-key
+```
+
+To use Claude for generation:
+
+```dotenv
+EMBEDDING_PROVIDER=openai
+LLM_PROVIDER=anthropic
+OPENAI_API_KEY=your-openai-key
+ANTHROPIC_API_KEY=your-anthropic-key
+```
+
+Restart the backend after changing `.env`. Embedding models can have different
+vector dimensions, so clear existing data before changing
+`EMBEDDING_PROVIDER`.
+
 ## Demo flow
+
+1. Sign in and choose **Upload** in the sidebar.
+2. Upload the included `sample-security-incident.log`.
+3. Wait for the UI to confirm the number of indexed chunks.
+4. Choose **Chat** and ask:
+
+   - `Which source IP compromised the account, what privilege escalation occurred, and how was the host contained?`
+   - `What suspicious outbound connection occurred, including the source IP, destination IP, port, and amount of data transferred?`
+   - `Summarize the incident using only the uploaded evidence.`
+5. Expand each source citation to inspect the exact retrieved excerpt.
+6. Choose **Audit** to review the username, prompt, evidence files, status, and
+   response summary.
+
+For your own evidence:
 
 1. Upload a small authentication log, incident report, or threat report.
 2. Wait for the UI to confirm the number of indexed chunks.
@@ -142,7 +227,7 @@ streamlit run frontend/app.py
    - `Summarize the incident timeline.`
    - `What evidence suggests credential compromise?`
 4. Expand the returned sources to inspect the exact supporting excerpts.
-5. Review audit records through `GET /api/audit` in the FastAPI docs.
+5. Review audit records in the UI or through `GET /api/audit`.
 
 Example log:
 
@@ -170,9 +255,13 @@ PYTHONPATH=backend pytest backend/tests
 ruff check backend frontend
 ```
 
-The unit tests cover file extraction, JWT/password helpers, and the
-prompt-injection guard, provider construction, FAISS retrieval, grounded
-prompting, and citation validation without making model API calls.
+The test suite covers TXT/LOG/PDF extraction, migration-safe audit storage,
+JWT/password helpers, prompt-injection detection, provider construction,
+FAISS persistence and retrieval, grounded prompting, structured log answers,
+and citation validation without making paid model API calls.
+
+GitHub Actions runs the same lint and test commands for pushes and pull
+requests.
 
 ## MVP security notes
 
@@ -193,10 +282,45 @@ prompting, and citation validation without making model API calls.
 
 ## Troubleshooting
 
-- **Indexing fails:** verify `OPENAI_API_KEY` and outbound network access.
+- **Indexing fails in local mode:** run `ollama list` and confirm
+  `nomic-embed-text` is installed. Also confirm Ollama is running.
+- **Chat fails in local mode:** run `ollama list` and confirm
+  `deepseek-r1:1.5b` is installed.
+- **Docker cannot reach Ollama:** confirm the Ollama desktop app or
+  `ollama serve` is running on port `11434`, then restart the backend.
+- **A provider was changed after indexing:** embedding dimensions may differ.
+  Re-index from a fresh data directory or Docker volume.
+- **OpenAI mode fails:** verify `OPENAI_API_KEY` and outbound network access.
 - **A PDF has no text:** scanned/image-only PDFs require an OCR step, which is
   outside this MVP.
 - **Login fails:** confirm the demo credentials in the running service's `.env`.
 - **Old data behaves unexpectedly:** stop the app and remove the local `data/`
   directory, or recreate the Docker volume with
   `docker compose down --volumes`.
+
+Inspect service status and logs:
+
+```bash
+docker compose ps
+docker compose logs --tail=100 backend frontend
+```
+
+## Limitations and roadmap
+
+- Authentication is a single environment-configured demo user, not a user
+  database or RBAC system.
+- PDFs must contain extractable text; scanned documents need OCR.
+- FAISS, SQLite, and uploads are local to one host.
+- Ingestion is synchronous and large files can block a request.
+- The deterministic prompt-injection guard is a basic first layer, not a
+  complete defense.
+- Small local language models are private and free to run but can be slower and
+  less capable than hosted models.
+
+Production improvements include persistent users and RBAC, hybrid search and
+reranking, OCR, asynchronous ingestion, malware scanning, retrieval
+evaluation, stronger injection defenses, observability, managed storage, rate
+limits, TLS, and deployment hardening.
+
+Interview preparation is available in
+[`docs/interview-talking-points.md`](docs/interview-talking-points.md).

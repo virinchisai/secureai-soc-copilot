@@ -54,3 +54,8 @@ def test_chat_endpoint_returns_sources_and_writes_audit_log(tmp_path) -> None:
     audit_logs = database.list_audit_logs("analyst")
     assert audit_logs[0]["status"] == "answered"
     assert audit_logs[0]["source_count"] == 1
+    assert audit_logs[0]["username"] == "analyst"
+    assert audit_logs[0]["uploaded_files"] == ["auth.log"]
+    assert audit_logs[0]["response_summary"] == (
+        "The source IP was 192.0.2.44 [S1]."
+    )

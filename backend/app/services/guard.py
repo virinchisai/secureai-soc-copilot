@@ -7,6 +7,7 @@ INJECTION_PATTERNS = [
     r"\breveal (the |your )?(prompt|instructions?|secrets?|api keys?)\b",
     r"\b(disregard|override|bypass) (the )?(rules?|instructions?|guardrails?)\b",
     r"\bact as (an? )?(unrestricted|unfiltered|different) (ai|assistant|model)\b",
+    r"\b(execute|run) (the )?(hidden|secret) commands?\b",
     r"\bjailbreak\b",
 ]
 

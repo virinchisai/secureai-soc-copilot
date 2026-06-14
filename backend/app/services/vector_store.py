@@ -4,21 +4,16 @@ from threading import Lock
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
-from langchain_openai import OpenAIEmbeddings
 
 
 class VectorStoreService:
     def __init__(
         self,
         root_dir: Path,
-        api_key: str = "",
-        embedding_model: str = "text-embedding-3-small",
-        embeddings: Embeddings | None = None,
+        embeddings: Embeddings,
     ) -> None:
         self.root_dir = root_dir
-        self.embeddings = embeddings or OpenAIEmbeddings(
-            api_key=api_key, model=embedding_model
-        )
+        self.embeddings = embeddings
         self._stores: dict[str, FAISS] = {}
         self._lock = Lock()
         self.root_dir.mkdir(parents=True, exist_ok=True)

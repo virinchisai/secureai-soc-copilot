@@ -1,3 +1,4 @@
+import json
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -48,6 +49,8 @@ class Database:
                     question TEXT NOT NULL,
                     status TEXT NOT NULL,
                     source_count INTEGER NOT NULL DEFAULT 0,
+                    uploaded_files TEXT NOT NULL DEFAULT '[]',
+                    response_summary TEXT NOT NULL DEFAULT '',
                     created_at TEXT NOT NULL
                 );
 
@@ -71,6 +74,18 @@ class Database:
                 connection,
                 "documents",
                 "stored_path",
+                "TEXT NOT NULL DEFAULT ''",
+            )
+            self._add_column_if_missing(
+                connection,
+                "audit_logs",
+                "uploaded_files",
+                "TEXT NOT NULL DEFAULT '[]'",
+            )
+            self._add_column_if_missing(
+                connection,
+                "audit_logs",
+                "response_summary",
                 "TEXT NOT NULL DEFAULT ''",
             )
 
@@ -138,22 +153,37 @@ class Database:
         question: str,
         status: str,
         source_count: int = 0,
+        uploaded_files: list[str] | None = None,
+        response_summary: str = "",
     ) -> None:
         with self.connect() as connection:
             connection.execute(
                 """
                 INSERT INTO audit_logs
-                    (user_id, question, status, source_count, created_at)
-                VALUES (?, ?, ?, ?, ?)
+                    (
+                        user_id, question, status, source_count, uploaded_files,
+                        response_summary, created_at
+                    )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (user_id, question, status, source_count, utc_now()),
+                (
+                    user_id,
+                    question,
+                    status,
+                    source_count,
+                    json.dumps(uploaded_files or []),
+                    response_summary[:500],
+                    utc_now(),
+                ),
             )
 
     def list_audit_logs(self, user_id: str, limit: int = 100) -> list[dict]:
         with self.connect() as connection:
             rows = connection.execute(
                 """
-                SELECT id, question, status, source_count, created_at
+                SELECT
+                    id, user_id, question, status, source_count,
+                    uploaded_files, response_summary, created_at
                 FROM audit_logs
                 WHERE user_id = ?
                 ORDER BY created_at DESC
@@ -161,4 +191,13 @@ class Database:
                 """,
                 (user_id, limit),
             ).fetchall()
-        return [dict(row) for row in rows]
+        records = []
+        for row in rows:
+            record = dict(row)
+            record["username"] = record.pop("user_id")
+            try:
+                record["uploaded_files"] = json.loads(record["uploaded_files"])
+            except (TypeError, json.JSONDecodeError):
+                record["uploaded_files"] = []
+            records.append(record)
+        return records

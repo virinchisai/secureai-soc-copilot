@@ -6,7 +6,7 @@ import streamlit as st
 
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000").rstrip("/")
-REQUEST_TIMEOUT = 120
+REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT_SECONDS", "210"))
 
 st.set_page_config(
     page_title="SecureAI SOC Copilot",
@@ -65,13 +65,15 @@ def login() -> None:
             st.session_state.token = response.json()["access_token"]
             st.session_state.username = username
             st.session_state.messages = []
+            st.session_state.documents = None
             st.rerun()
         else:
             st.error(error_detail(response))
 
 
 def upload_panel() -> None:
-    st.subheader("Evidence")
+    st.header("Upload evidence")
+    st.caption("Index a TXT, LOG, or text-based PDF before starting an investigation.")
     uploaded_file = st.file_uploader(
         "Upload a log or report",
         type=["txt", "log", "pdf"],
@@ -100,23 +102,55 @@ def upload_panel() -> None:
             st.success(
                 f"Indexed {document['filename']} into {document['chunk_count']} chunks."
             )
+            st.session_state.documents = None
         else:
             st.error(error_detail(response))
 
+    if st.session_state.get("documents") is None:
+        try:
+            response = api_request("GET", "/api/documents")
+            if response.ok:
+                st.session_state.documents = response.json()
+        except requests.RequestException:
+            st.warning("Document list is temporarily unavailable.")
+
+    documents = st.session_state.get("documents") or []
+    if documents:
+        st.caption("Indexed documents")
+        for document in documents:
+            st.write(f"- {document['filename']} ({document['chunk_count']} chunks)")
+    else:
+        st.info("Upload a document to begin.")
+
+
+def audit_panel() -> None:
+    st.header("Audit activity")
+    st.caption("Recent questions and security outcomes for the signed-in analyst.")
     try:
-        response = api_request("GET", "/api/documents")
-        if response.ok:
-            documents = response.json()
-            if documents:
-                st.caption("Indexed documents")
-                for document in documents:
-                    st.write(
-                        f"- {document['filename']} ({document['chunk_count']} chunks)"
-                    )
-            else:
-                st.info("Upload a document to begin.")
-    except requests.RequestException:
-        st.warning("Document list is temporarily unavailable.")
+        response = api_request("GET", "/api/audit?limit=100")
+    except requests.RequestException as exc:
+        st.error(f"Could not load audit records: {exc}")
+        return
+
+    if not response.ok:
+        st.error(error_detail(response))
+        return
+
+    records = response.json()
+    if not records:
+        st.info("No questions have been audited yet.")
+        return
+
+    for record in records:
+        files = ", ".join(record["uploaded_files"]) or "No retrieved files"
+        st.markdown(f"**{record['question']}**")
+        st.caption(
+            f"{record['created_at']} | {record['status']} | "
+            f"{record['source_count']} sources | {files}"
+        )
+        if record["response_summary"]:
+            st.write(record["response_summary"])
+        st.divider()
 
 
 def chat_panel() -> None:
@@ -133,7 +167,9 @@ def chat_panel() -> None:
                 with st.expander(f"[{source['citation']}] {source['filename']}{page}"):
                     st.write(source["snippet"])
 
-    question = st.chat_input("Ask about indicators, events, users, hosts, or timelines")
+    question = st.chat_input(
+        "Ask about the uploaded document, such as: Tell me about yourself"
+    )
     if not question:
         return
 
@@ -159,7 +195,10 @@ def chat_panel() -> None:
 
         if not response.ok:
             message = error_detail(response)
-            st.error(message)
+            if response.status_code == 400 and "prompt-injection" in message:
+                st.warning(f"Security alert: {message}")
+            else:
+                st.error(message)
             st.session_state.messages.append({"role": "assistant", "content": message})
             return
 
@@ -177,6 +216,7 @@ def chat_panel() -> None:
                 "sources": payload["sources"],
             }
         )
+        st.rerun()
 
 
 def main() -> None:
@@ -187,13 +227,18 @@ def main() -> None:
     with st.sidebar:
         st.title("SecureAI SOC Copilot")
         st.caption(f"Signed in as {st.session_state.username}")
+        page = st.radio("Navigation", ["Upload", "Chat", "Audit"])
+        st.divider()
         if st.button("Sign out", use_container_width=True):
             st.session_state.clear()
             st.rerun()
-        st.divider()
-        upload_panel()
 
-    chat_panel()
+    if page == "Upload":
+        upload_panel()
+    elif page == "Audit":
+        audit_panel()
+    else:
+        chat_panel()
 
 
 if __name__ == "__main__":

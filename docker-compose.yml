@@ -7,6 +7,9 @@ services:
         required: false
     environment:
       DATA_DIR: /app/data
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8000:8000"
     volumes:
@@ -22,11 +25,17 @@ services:
       context: ./frontend
     environment:
       API_BASE_URL: http://backend:8000
+      REQUEST_TIMEOUT_SECONDS: 210
     ports:
       - "8501:8501"
     depends_on:
       backend:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   soc_data:

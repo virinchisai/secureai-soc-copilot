@@ -24,6 +24,7 @@ async def ask_question(
             user_id=current_user,
             question=request.question,
             status="blocked_prompt_injection",
+            response_summary=guard_message,
         )
         raise HTTPException(status_code=400, detail=guard_message)
 
@@ -38,6 +39,7 @@ async def ask_question(
             user_id=current_user,
             question=request.question,
             status="provider_error",
+            response_summary="Answer generation failed.",
         )
         raise HTTPException(
             status_code=502,
@@ -49,6 +51,8 @@ async def ask_question(
         question=request.question,
         status="answered" if sources else "no_sources",
         source_count=len(sources),
+        uploaded_files=sorted({source["filename"] for source in sources}),
+        response_summary=answer,
     )
     return AnswerResponse(
         answer=answer,

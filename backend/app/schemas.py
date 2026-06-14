@@ -45,7 +45,10 @@ class AnswerResponse(BaseModel):
 
 class AuditLogResponse(BaseModel):
     id: int
+    username: str
+    uploaded_files: list[str]
     question: str
+    response_summary: str
     status: str
     source_count: int
     created_at: datetime
