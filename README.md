@@ -350,3 +350,6 @@ reranking, OCR, asynchronous ingestion, malware scanning, retrieval
 evaluation, stronger injection defenses, observability, managed storage, rate
 limits, TLS, and deployment hardening.
 
+## License
+
+This project is licensed under the [MIT License](LICENSE).
