@@ -168,6 +168,60 @@ def test_delete_does_not_expose_another_users_document(tmp_path) -> None:
     assert database.get_document("other-document", "other-user") is not None
 
 
+def test_delete_all_removes_only_current_users_documents(tmp_path) -> None:
+    settings = Settings(
+        jwt_secret_key="test-secret-that-is-long-enough",
+        data_dir=tmp_path,
+    )
+    database = Database(settings.database_path)
+    database.initialize()
+
+    app = FastAPI()
+    app.include_router(documents.router, prefix=settings.api_prefix)
+    app.state.database = database
+    app.state.rag_service = RAGService(
+        settings,
+        embeddings=DeterministicEmbeddings(),
+        chat_model=object(),
+    )
+    app.state.upload_storage = UploadStorage(settings.uploads_dir)
+    app.dependency_overrides[get_current_user] = lambda: "analyst"
+    app.dependency_overrides[get_settings] = lambda: settings
+
+    with TestClient(app) as client:
+        for filename in ("first.log", "second.log"):
+            upload = client.post(
+                "/api/documents/upload",
+                files={
+                    "file": (
+                        filename,
+                        f"security event from {filename}".encode(),
+                        "text/plain",
+                    )
+                },
+            )
+            assert upload.status_code == 201, upload.text
+
+        database.add_document(
+            document_id="other-document",
+            user_id="other-user",
+            filename="private.log",
+            chunk_count=1,
+            size_bytes=10,
+            sha256="checksum",
+            stored_path="other-user/other-document/private.log",
+        )
+        response = client.delete("/api/documents")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["deleted_count"] == 2
+    assert sorted(response.json()["filenames"]) == ["first.log", "second.log"]
+    assert database.list_documents("analyst") == []
+    assert database.get_document("other-document", "other-user") is not None
+    assert app.state.rag_service.vector_store.index_size("analyst") == 0
+    assert not any((settings.uploads_dir / "analyst").iterdir())
+
+
 def _pdf_with_text(text: str) -> bytes:
     writer = PdfWriter()
     page = writer.add_blank_page(width=612, height=792)

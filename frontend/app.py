@@ -117,6 +117,30 @@ def upload_panel() -> None:
     documents = st.session_state.get("documents") or []
     if documents:
         st.caption("Indexed documents")
+        select_all = st.checkbox(
+            "Select all documents",
+            help="Select every indexed document for one bulk removal.",
+        )
+        if select_all and st.button(
+            f"Remove all {len(documents)} selected documents",
+            type="primary",
+            use_container_width=True,
+        ):
+            try:
+                response = api_request("DELETE", "/api/documents")
+            except requests.RequestException as exc:
+                st.error(f"Bulk removal failed: {exc}")
+                return
+
+            if response.ok:
+                deleted_count = response.json()["deleted_count"]
+                st.session_state.documents = None
+                st.session_state.messages = []
+                st.success(f"Removed {deleted_count} indexed documents.")
+                st.rerun()
+            else:
+                st.error(error_detail(response))
+
         for document in documents:
             details, action = st.columns([4, 1])
             details.write(

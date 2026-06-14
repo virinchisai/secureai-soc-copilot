@@ -12,7 +12,12 @@ from app.dependencies import (
     get_rag_service,
     get_upload_storage,
 )
-from app.schemas import DeleteDocumentResponse, DocumentResponse, UploadResponse
+from app.schemas import (
+    DeleteAllDocumentsResponse,
+    DeleteDocumentResponse,
+    DocumentResponse,
+    UploadResponse,
+)
 from app.services.extraction import ALLOWED_EXTENSIONS, ExtractionError, extract_text
 from app.services.rag import RAGService
 from app.services.storage import UploadStorage
@@ -27,6 +32,52 @@ def list_documents(
     database: Database = Depends(get_database),
 ) -> list[dict]:
     return database.list_documents(current_user)
+
+
+@router.delete("", response_model=DeleteAllDocumentsResponse)
+async def delete_all_documents(
+    current_user: str = Depends(get_current_user),
+    database: Database = Depends(get_database),
+    rag_service: RAGService = Depends(get_rag_service),
+    upload_storage: UploadStorage = Depends(get_upload_storage),
+) -> DeleteAllDocumentsResponse:
+    documents = database.list_documents(current_user)
+    if not documents:
+        return DeleteAllDocumentsResponse(
+            deleted_count=0,
+            filenames=[],
+            message="No indexed documents to remove",
+        )
+
+    vector_ids = [
+        f"{document['id']}:{chunk_number}"
+        for document in documents
+        for chunk_number in range(1, document["chunk_count"] + 1)
+    ]
+    try:
+        await run_in_threadpool(
+            rag_service.delete_vectors,
+            current_user,
+            vector_ids,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Document vectors could not be removed.",
+        ) from exc
+
+    for document in documents:
+        await run_in_threadpool(
+            upload_storage.delete_document,
+            current_user,
+            document["id"],
+        )
+    database.delete_all_documents(current_user)
+    return DeleteAllDocumentsResponse(
+        deleted_count=len(documents),
+        filenames=[document["filename"] for document in documents],
+        message="All indexed documents removed successfully",
+    )
 
 
 @router.delete("/{document_id}", response_model=DeleteDocumentResponse)

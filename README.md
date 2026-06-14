@@ -216,8 +216,8 @@ vector dimensions, so clear existing data before changing
 5. Expand each source citation to inspect the exact retrieved excerpt.
 6. Choose **Audit** to review the username, prompt, evidence files, status, and
    response summary.
-7. Return to **Upload** and select **Remove** beside a document to delete its
-   upload, metadata, and indexed chunks.
+7. Return to **Upload** and select **Remove** beside one document, or enable
+   **Select all documents** and choose **Remove all selected documents**.
 
 For your own evidence:
 
@@ -246,6 +246,7 @@ Example log:
 | `POST` | `/api/auth/token` | Sign in and receive a JWT |
 | `GET` | `/api/documents` | List the current user's documents |
 | `POST` | `/api/documents/upload` | Extract, chunk, embed, and index a file |
+| `DELETE` | `/api/documents` | Remove all documents owned by the current user |
 | `DELETE` | `/api/documents/{document_id}` | Remove one user-owned document and its vectors |
 | `POST` | `/api/chat/ask` | Ask a grounded question |
 | `GET` | `/api/audit` | List the current user's question audit records |

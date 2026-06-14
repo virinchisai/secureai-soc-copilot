@@ -28,6 +28,12 @@ class DeleteDocumentResponse(BaseModel):
     message: str
 
 
+class DeleteAllDocumentsResponse(BaseModel):
+    deleted_count: int
+    filenames: list[str]
+    message: str
+
+
 class QuestionRequest(BaseModel):
     question: str = Field(min_length=3, max_length=4000)
 

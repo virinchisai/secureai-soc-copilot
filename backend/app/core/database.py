@@ -166,6 +166,13 @@ class Database:
                 (document_id, user_id),
             )
 
+    def delete_all_documents(self, user_id: str) -> None:
+        with self.connect() as connection:
+            connection.execute(
+                "DELETE FROM documents WHERE user_id = ?",
+                (user_id,),
+            )
+
     def add_audit_log(
         self,
         user_id: str,
