@@ -322,5 +322,4 @@ reranking, OCR, asynchronous ingestion, malware scanning, retrieval
 evaluation, stronger injection defenses, observability, managed storage, rate
 limits, TLS, and deployment hardening.
 
-Interview preparation is available in
-[`docs/interview-talking-points.md`](docs/interview-talking-points.md).
+
