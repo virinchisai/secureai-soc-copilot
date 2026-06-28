@@ -1,11 +1,40 @@
-# SecureAI SOC Copilot
+<div align="center">
 
-SecureAI SOC Copilot is a beginner-friendly MVP for asking grounded questions
+# 🛡️ SecureAI SOC Copilot
+
+### Local-First RAG Assistant for Cybersecurity Investigations
+
+*A grounded question-answering platform over your security logs and reports — JWT-authenticated, local-first, with citations on every answer.*
+
+<br>
+
+![tests](https://img.shields.io/github/actions/workflow/status/virinchisai/secureai-soc-copilot/ci.yml?label=tests&color=22c55e)
+![last commit](https://img.shields.io/github/last-commit/virinchisai/secureai-soc-copilot?color=22c55e)
+![code size](https://img.shields.io/github/languages/code-size/virinchisai/secureai-soc-copilot?color=blue)
+![top language](https://img.shields.io/github/languages/top/virinchisai/secureai-soc-copilot)
+![stars](https://img.shields.io/github/stars/virinchisai/secureai-soc-copilot?style=social)
+
+![python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
+![fastapi](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?logo=streamlit&logoColor=white)
+![langchain](https://img.shields.io/badge/LangChain-1C3C3C?logo=langchain&logoColor=white)
+![faiss](https://img.shields.io/badge/FAISS-005AAB?logo=meta&logoColor=white)
+![ollama](https://img.shields.io/badge/Ollama-000000?logo=ollama&logoColor=white)
+![docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
+![license](https://img.shields.io/badge/license-MIT-green)
+
+[**Features**](#-what-the-mvp-does) · [**Architecture**](#-architecture) · [**Quick Start**](#quick-start) · [**Security**](#security-considerations)
+
+</div>
+
+---
+
+SecureAI SOC Copilot is a local-first RAG assistant for asking grounded questions
 over cybersecurity logs and reports. It combines a FastAPI API, Streamlit UI,
 LangChain retrieval pipeline, FAISS vector storage, JWT authentication, and
-SQLite audit logging.
+SQLite audit logging — all running on your machine with no data leaving the host.
 
-## What the MVP does
+## ✨ What the MVP does
 
 - Signs a demo analyst in with a JWT access token.
 - Accepts `.txt`, `.log`, and text-based `.pdf` files up to a configurable size.
@@ -22,22 +51,40 @@ SQLite audit logging.
 - Runs locally or as two Docker Compose services.
 - Includes GitHub Actions checks for linting, tests, and Compose validation.
 
-## Architecture
+## 🏗️ Architecture
 
-```text
-Browser
-  |
-  v
-Streamlit UI :8501
-  |
-  | JWT-authenticated HTTP requests
-  v
-FastAPI :8000
-  |-- Auth and upload validation
-  |-- Text/PDF extraction and LangChain chunking
-  |-- Ollama/OpenAI embeddings -> per-user FAISS index
-  |-- Retrieval -> grounded Ollama, OpenAI, or Claude answer
-  `-- SQLite document metadata and audit logs
+```mermaid
+flowchart TD
+    User([👤 Security Analyst])
+    UI[Streamlit UI<br/>:8501]
+    API[FastAPI :8000<br/>JWT-authenticated]
+    Auth[Auth Layer<br/>JWT • Bcrypt]
+    Ingest[Ingest<br/>PDF/TXT/LOG → chunks]
+    Embed[Embeddings<br/>Ollama / OpenAI]
+    Store[(FAISS Index<br/>per-user)]
+    Retrieve[Retrieval +<br/>Prompt-Injection Filter]
+    LLM[(LLM Provider<br/>Ollama / OpenAI / Claude)]
+    Audit[(SQLite Audit Log)]
+
+    User --> UI
+    UI -->|JWT requests| API
+    API --> Auth
+    API --> Ingest
+    Ingest --> Embed
+    Embed --> Store
+    API --> Retrieve
+    Retrieve --> Store
+    Retrieve --> LLM
+    API --> Audit
+
+    classDef ui fill:#FF4B4B,stroke:#991b1b,color:#fff
+    classDef api fill:#009688,stroke:#0d4f47,color:#fff
+    classDef ai fill:#8b5cf6,stroke:#5b21b6,color:#fff
+    classDef store fill:#3b82f6,stroke:#1e40af,color:#fff
+    class UI ui
+    class API,Auth,Ingest api
+    class Embed,Retrieve,LLM ai
+    class Store,Audit store
 ```
 
 Data is stored under `DATA_DIR` and survives Docker restarts through the
