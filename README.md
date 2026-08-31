@@ -1,5 +1,7 @@
 # SecureAI SOC Copilot
 
+[![Knowledge Reliability](https://github.com/virinchisai/secureai-soc-copilot/actions/workflows/knowledge-reliability.yml/badge.svg)](https://github.com/virinchisai/secureai-soc-copilot/actions/workflows/knowledge-reliability.yml)
+
 SecureAI SOC Copilot is a beginner-friendly MVP for asking grounded questions
 over cybersecurity logs and reports. It combines a FastAPI API, Streamlit UI,
 LangChain retrieval pipeline, FAISS vector storage, JWT authentication, and

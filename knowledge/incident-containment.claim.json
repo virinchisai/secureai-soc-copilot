@@ -1,0 +1,18 @@
+{
+  "id": "soc/incident-2026-06-11#isolated-host",
+  "subject": "incident-2026-06-11",
+  "predicate": "isolated_host",
+  "value": "finance-ws-07",
+  "sources": [{
+    "uri": "sample-security-incident.log",
+    "sha256": "fe2d0606b550a28eacfc93b45977942d8a7fe04f9b30c8197395f80515c07f74",
+    "classification": "internal"
+  }],
+  "classification": "internal",
+  "audiences": ["employee"],
+  "owner": "soc",
+  "verified_at": "2026-08-31",
+  "stale_after": "2027-08-31",
+  "status": "stable",
+  "body": "The response contained the incident by isolating finance-ws-07."
+}

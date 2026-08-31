@@ -1,0 +1,20 @@
+{
+  "name": "Seeded SOC incident facts remain grounded",
+  "audience": "employee",
+  "required_claims": [
+    "soc/incident-2026-06-11#failed-logins-before-success",
+    "soc/incident-2026-06-11#external-source-ip",
+    "soc/incident-2026-06-11#isolated-host"
+  ],
+  "required_sources": ["sample-security-incident.log"],
+  "expected_values": {
+    "soc/incident-2026-06-11#failed-logins-before-success": 3,
+    "soc/incident-2026-06-11#external-source-ip": "203.0.113.77",
+    "soc/incident-2026-06-11#isolated-host": "finance-ws-07"
+  },
+  "expected_classifications": {
+    "soc/incident-2026-06-11#failed-logins-before-success": "internal",
+    "soc/incident-2026-06-11#external-source-ip": "internal",
+    "soc/incident-2026-06-11#isolated-host": "internal"
+  }
+}

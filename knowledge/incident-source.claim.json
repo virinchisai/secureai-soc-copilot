@@ -1,0 +1,18 @@
+{
+  "id": "soc/incident-2026-06-11#external-source-ip",
+  "subject": "incident-2026-06-11",
+  "predicate": "external_source_ip",
+  "value": "203.0.113.77",
+  "sources": [{
+    "uri": "sample-security-incident.log",
+    "sha256": "fe2d0606b550a28eacfc93b45977942d8a7fe04f9b30c8197395f80515c07f74",
+    "classification": "internal"
+  }],
+  "classification": "internal",
+  "audiences": ["employee"],
+  "owner": "soc",
+  "verified_at": "2026-08-31",
+  "stale_after": "2027-08-31",
+  "status": "stable",
+  "body": "The authentication activity originated from 203.0.113.77."
+}

@@ -1,0 +1,18 @@
+{
+  "id": "soc/incident-2026-06-11#failed-logins-before-success",
+  "subject": "incident-2026-06-11",
+  "predicate": "failed_logins_before_success",
+  "value": 3,
+  "sources": [{
+    "uri": "sample-security-incident.log",
+    "sha256": "fe2d0606b550a28eacfc93b45977942d8a7fe04f9b30c8197395f80515c07f74",
+    "classification": "internal"
+  }],
+  "classification": "internal",
+  "audiences": ["employee"],
+  "owner": "soc",
+  "verified_at": "2026-08-31",
+  "stale_after": "2027-08-31",
+  "status": "stable",
+  "body": "Three failed VPN logins for jsmith preceded a successful login."
+}
