@@ -1,0 +1,53 @@
+name: Knowledge Reliability
+
+on:
+  push:
+    branches: [codex/secureai-soc-copilot]
+    paths:
+      - "sample-security-incident.log"
+      - "knowledge/**"
+      - "knowledge-tests/**"
+      - ".github/workflows/knowledge-reliability.yml"
+  pull_request:
+    branches: [codex/secureai-soc-copilot]
+    paths:
+      - "sample-security-incident.log"
+      - "knowledge/**"
+      - "knowledge-tests/**"
+      - ".github/workflows/knowledge-reliability.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  verify:
+    name: Verify SOC knowledge
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install Knowledge Reliability CI v0.1.0
+        run: python -m pip install "git+https://github.com/virinchisai/knowledge-reliability-ci.git@e59fdfb542be3645811861cfb98455843c529f48"
+      - name: Verify incident knowledge
+        run: |
+          mkdir -p "$RUNNER_TEMP/knowledge-ci"
+          knowledge-ci check . --sarif "$RUNNER_TEMP/knowledge-ci/results.sarif"
+          knowledge-ci test . --tests knowledge-tests
+          knowledge-ci kbom . --output "$RUNNER_TEMP/knowledge-ci/kbom.json"
+          knowledge-ci hashes . --output "$RUNNER_TEMP/knowledge-ci/source-hashes.json"
+      - name: Upload SARIF
+        if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ runner.temp }}/knowledge-ci/results.sarif
+      - name: Upload verification artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: knowledge-reliability
+          path: ${{ runner.temp }}/knowledge-ci/
+          if-no-files-found: warn
