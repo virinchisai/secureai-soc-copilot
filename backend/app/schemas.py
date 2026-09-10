@@ -17,6 +17,12 @@ class DocumentResponse(BaseModel):
     created_at: datetime
 
 
+class DocumentStatsResponse(BaseModel):
+    total_documents: int
+    total_chunks: int
+    total_bytes: int
+
+
 class UploadResponse(BaseModel):
     document: DocumentResponse
     message: str
@@ -64,3 +70,14 @@ class AuditLogResponse(BaseModel):
     status: str
     source_count: int
     created_at: datetime
+
+
+class SystemStatusResponse(BaseModel):
+    app_name: str
+    version: str
+    username: str
+    embedding_provider: str
+    embedding_model: str
+    llm_provider: str
+    llm_model: str
+    document_stats: DocumentStatsResponse

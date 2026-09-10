@@ -2,7 +2,9 @@
 
 [![Knowledge Reliability](https://github.com/virinchisai/secureai-soc-copilot/actions/workflows/knowledge-reliability.yml/badge.svg)](https://github.com/virinchisai/secureai-soc-copilot/actions/workflows/knowledge-reliability.yml)
 
-SecureAI SOC Copilot is a beginner-friendly MVP for asking grounded questions
+**Current release: v2.0.0**
+
+SecureAI SOC Copilot is a beginner-friendly project for asking grounded questions
 over cybersecurity logs and reports. It combines a FastAPI API, Streamlit UI,
 LangChain retrieval pipeline, FAISS vector storage, JWT authentication, and
 SQLite audit logging.
@@ -21,6 +23,9 @@ SQLite audit logging.
 - Blocks common prompt-injection phrases before they reach the model.
 - Records the timestamp, username, retrieved filenames, prompt, status, and
   response summary in a local SQLite audit table.
+- Shows authenticated system status, provider/model configuration, and document
+  storage totals in the UI.
+- Exports analyst audit activity as CSV for reporting or demo evidence.
 - Runs locally or as two Docker Compose services.
 - Includes GitHub Actions checks for linting, tests, and Compose validation.
 
@@ -39,7 +44,8 @@ FastAPI :8000
   |-- Text/PDF extraction and LangChain chunking
   |-- Ollama/OpenAI embeddings -> per-user FAISS index
   |-- Retrieval -> grounded Ollama, OpenAI, or Claude answer
-  `-- SQLite document metadata and audit logs
+  |-- User-scoped system status and document metrics
+  `-- SQLite document metadata, audit logs, and CSV export
 ```
 
 Data is stored under `DATA_DIR` and survives Docker restarts through the
@@ -217,7 +223,7 @@ vector dimensions, so clear existing data before changing
    - `Summarize the incident using only the uploaded evidence.`
 5. Expand each source citation to inspect the exact retrieved excerpt.
 6. Choose **Audit** to review the username, prompt, evidence files, status, and
-   response summary.
+   response summary, or download the audit history as CSV.
 7. Return to **Upload** and select **Remove** beside one document, or enable
    **Select all documents** and choose **Remove all selected documents**.
 
@@ -252,6 +258,8 @@ Example log:
 | `DELETE` | `/api/documents/{document_id}` | Remove one user-owned document and its vectors |
 | `POST` | `/api/chat/ask` | Ask a grounded question |
 | `GET` | `/api/audit` | List the current user's question audit records |
+| `GET` | `/api/audit/export` | Download the current user's audit records as CSV |
+| `GET` | `/api/system/status` | Show version, provider settings, and document totals |
 | `GET` | `/health` | Container/API health check |
 
 ## Tests
@@ -264,7 +272,8 @@ ruff check backend frontend
 The test suite covers TXT/LOG/PDF extraction, migration-safe audit storage,
 JWT/password helpers, prompt-injection detection, provider construction,
 FAISS persistence and retrieval, grounded prompting, structured log answers,
-and citation validation without making paid model API calls.
+system status, CSV audit export, and citation validation without making paid
+model API calls.
 
 GitHub Actions runs the same lint and test commands for pushes and pull
 requests. A separate CodeQL workflow scans Python code on pull requests,
@@ -351,6 +360,26 @@ Production improvements include persistent users and RBAC, hybrid search and
 reranking, OCR, asynchronous ingestion, malware scanning, retrieval
 evaluation, stronger injection defenses, observability, managed storage, rate
 limits, TLS, and deployment hardening.
+
+## Version 2.0 updates
+
+Version 2.0 improves the MVP into a cleaner demo and interview-ready release:
+
+- Added application versioning and exposed `v2.0.0` through FastAPI metadata,
+  `/health`, and the authenticated `/api/system/status` endpoint.
+- Added user-scoped document statistics for total indexed documents, chunks,
+  and stored evidence size.
+- Added Streamlit status cards showing indexed document count, chunk count,
+  evidence size, embedding provider/model, and answer provider/model.
+- Added CSV audit export from both the backend and the Streamlit Audit page.
+- Expanded deterministic prompt-injection detection to catch more common
+  attack phrasing, including attempts to forget instructions, show hidden
+  developer messages, disable safety filters, enable developer mode, or
+  exfiltrate secrets.
+- Added regression tests for document statistics, system status, audit CSV
+  export, and the expanded security guard.
+- Updated documentation so setup, usage, API behavior, testing, security
+  checks, and release notes match the current implementation.
 
 ## License
 
