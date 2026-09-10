@@ -40,6 +40,16 @@ def error_detail(response: requests.Response) -> str:
         return response.text or f"Request failed with status {response.status_code}"
 
 
+def load_system_status() -> dict[str, Any] | None:
+    try:
+        response = api_request("GET", "/api/system/status")
+    except requests.RequestException:
+        return None
+    if response.ok:
+        return response.json()
+    return None
+
+
 def login() -> None:
     st.title("SecureAI SOC Copilot")
     st.caption("Grounded answers for cybersecurity logs and reports")
@@ -74,6 +84,21 @@ def login() -> None:
 def upload_panel() -> None:
     st.header("Upload evidence")
     st.caption("Index a TXT, LOG, or text-based PDF before starting an investigation.")
+    status_payload = load_system_status()
+    if status_payload:
+        stats = status_payload["document_stats"]
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Indexed documents", stats["total_documents"])
+        col2.metric("Stored chunks", stats["total_chunks"])
+        col3.metric("Stored evidence", f"{stats['total_bytes'] / 1024:.1f} KB")
+        st.caption(
+            "Embeddings: "
+            f"{status_payload['embedding_provider']} / "
+            f"{status_payload['embedding_model']} | "
+            "Answers: "
+            f"{status_payload['llm_provider']} / {status_payload['llm_model']}"
+        )
+
     uploaded_file = st.file_uploader(
         "Upload a log or report",
         type=["txt", "log", "pdf"],
@@ -188,6 +213,19 @@ def audit_panel() -> None:
         st.info("No questions have been audited yet.")
         return
 
+    try:
+        export_response = api_request("GET", "/api/audit/export?limit=1000")
+    except requests.RequestException:
+        export_response = None
+    if export_response and export_response.ok:
+        st.download_button(
+            "Download audit CSV",
+            data=export_response.content,
+            file_name="secureai-soc-copilot-audit.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+
     for record in records:
         files = ", ".join(record["uploaded_files"]) or "No retrieved files"
         st.markdown(f"**{record['question']}**")
@@ -274,6 +312,16 @@ def main() -> None:
     with st.sidebar:
         st.title("SecureAI SOC Copilot")
         st.caption(f"Signed in as {st.session_state.username}")
+        status_payload = load_system_status()
+        if status_payload:
+            st.caption(f"Version {status_payload['version']}")
+            stats = status_payload["document_stats"]
+            st.write(
+                f"{stats['total_documents']} docs | "
+                f"{stats['total_chunks']} chunks"
+            )
+        else:
+            st.warning("API status unavailable")
         page = st.radio("Navigation", ["Upload", "Chat", "Audit"])
         st.divider()
         if st.button("Sign out", use_container_width=True):

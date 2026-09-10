@@ -1,5 +1,6 @@
 import json
 import sqlite3
+from collections.abc import Sequence
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -147,6 +148,21 @@ class Database:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def document_stats(self, user_id: str) -> dict[str, int]:
+        with self.connect() as connection:
+            row = connection.execute(
+                """
+                SELECT
+                    COUNT(*) AS total_documents,
+                    COALESCE(SUM(chunk_count), 0) AS total_chunks,
+                    COALESCE(SUM(size_bytes), 0) AS total_bytes
+                FROM documents
+                WHERE user_id = ?
+                """,
+                (user_id,),
+            ).fetchone()
+        return dict(row)
+
     def get_document(self, document_id: str, user_id: str) -> dict | None:
         with self.connect() as connection:
             row = connection.execute(
@@ -227,3 +243,10 @@ class Database:
                 record["uploaded_files"] = []
             records.append(record)
         return records
+
+    def list_audit_logs_for_export(
+        self,
+        user_id: str,
+        limit: int = 1000,
+    ) -> Sequence[dict]:
+        return self.list_audit_logs(user_id, limit)

@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "SecureAI SOC Copilot"
+    app_version: str = "2.0.0"
     api_prefix: str = "/api"
 
     jwt_secret_key: str = Field(default="dev-only-change-me", min_length=16)
